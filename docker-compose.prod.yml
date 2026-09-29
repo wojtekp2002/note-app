@@ -1,0 +1,8 @@
+services:
+  web:
+    restart: always
+    ports:
+      - "${PROD_PORT}:5000"
+
+  db:
+    restart: always

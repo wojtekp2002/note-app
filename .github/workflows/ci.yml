@@ -1,0 +1,60 @@
+---
+name: NoteApp Docker CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start DEV stack
+        run: docker compose up -d --build
+
+      - name: Test DEV API
+        run: |
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://localhost:5000/notes >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS -X POST http://localhost:5000/notes \
+            -H "Content-Type: application/json" \
+            -d '{"content":"CI note"}'
+          curl -fsS http://localhost:5000/notes | grep -F "CI note"
+
+      - name: Test Adminer in DEV
+        run: curl -fsS http://localhost:8080 | grep -i "Adminer"
+
+      - name: Stop DEV stack
+        run: docker compose down
+
+      - name: Start PROD stack
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+      - name: Test PROD API and Adminer absence
+        run: |
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://localhost/notes >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://localhost/notes
+          if curl -fsS --max-time 3 http://localhost:8080 >/dev/null; then
+            echo "Adminer should not be available in prod"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose down -v || true
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v || true
