@@ -32,6 +32,7 @@ def init_db():
 
 @app.route("/notes", methods=["GET"])
 def get_notes():
+    init_db()
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM notes ORDER BY id;")
@@ -43,6 +44,7 @@ def get_notes():
 
 @app.route("/notes", methods=["POST"])
 def add_note():
+    init_db()
     data = request.get_json()
     content = data.get("content", "")
     conn = get_db_connection()
